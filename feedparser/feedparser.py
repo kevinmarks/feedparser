@@ -2739,6 +2739,7 @@ def _parseMicroformats(htmlSource, baseURI, encoding):
         # sgmllib throws this exception when performing lookups of tags
         # with non-ASCII characters in them.
         return
+        
     p.vcard = p.findVCards(p.document)
     p.findTags()
     p.findEnclosures()
