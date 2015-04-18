@@ -69,6 +69,10 @@ RESOLVE_RELATIVE_URIS = 1
 # HTML content, set this to 1.
 SANITIZE_HTML = 1
 
+# If you want feedparser to automatically parse microformat content embedded
+# in entry contents, set this to 1
+PARSE_MICROFORMATS = 1
+
 # ---------- Python 3 modules (make it work if possible) ----------
 try:
     import rfc822
@@ -191,7 +195,8 @@ else:
         _XML_AVAILABLE = 1
 
 # sgmllib is not available by default in Python 3; if the end user doesn't have
-# it available then we'll lose illformed XML parsing and content santizing
+# it available then we'll lose illformed XML parsing, content santizing, and
+# microformat support (at least while feedparser depends on BeautifulSoup).
 try:
     import sgmllib
 except ImportError:
@@ -262,6 +267,15 @@ try:
     import chardet
 except ImportError:
     chardet = None
+
+# BeautifulSoup is used to extract microformat content from HTML
+# feedparser is tested using BeautifulSoup 3.2.0
+# http://www.crummy.com/software/BeautifulSoup/
+try:
+    import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
+    PARSE_MICROFORMATS = False
 
 # ---------- don't touch these ----------
 class ThingsNobodyCaresAboutButMe(Exception): pass

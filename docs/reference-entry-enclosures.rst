@@ -18,6 +18,7 @@ as a list.
 
 - /atom10:feed/atom10:entry/atom10:link[@rel="enclosure"]
 - /rss/channel/item/enclosure
+- additionally, :ref:`certain links within embedded markup <advanced.microformats.relenclosure>`
 
 
 .. _reference.entry.enclosures.href:

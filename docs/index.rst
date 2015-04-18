@@ -20,5 +20,6 @@ implied warranties.  See :ref:`the documentation license <license>` for more det
    http
    annotated-examples
    history
+   microformats
    reference
    license
