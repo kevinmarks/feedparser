@@ -196,7 +196,7 @@ else:
 
 # sgmllib is not available by default in Python 3; if the end user doesn't have
 # it available then we'll lose illformed XML parsing, content santizing, and
-# microformat support (at least while feedparser depends on BeautifulSoup).
+# microformat support (at least while feedparser depends on mf2parser).
 try:
     import sgmllib
 except ImportError:
@@ -268,13 +268,13 @@ try:
 except ImportError:
     chardet = None
 
-# BeautifulSoup is used to extract microformat content from HTML
-# feedparser is tested using BeautifulSoup 3.2.0
-# http://www.crummy.com/software/BeautifulSoup/
+# mf2parser is used to extract microformat content from HTML
+# feedparser is tested using mf2parser
+# https://github.com/tommorris/mf2py
 try:
-    import BeautifulSoup
+    from mf2py import Parser as mf2parser
 except ImportError:
-    BeautifulSoup = None
+    mf2parser = None
     PARSE_MICROFORMATS = False
 
 # ---------- don't touch these ----------
@@ -940,6 +940,7 @@ class _FeedParserMixin:
                 for tag in mfresults.get('tags', []):
                     self._addTag(tag['term'], tag['scheme'], tag['label'])
                 for enclosure in mfresults.get('enclosures', []):
+                    print enclosure
                     self._start_enclosure(enclosure)
                 for xfn in mfresults.get('xfn', []):
                     self._addXFN(xfn['relationships'], xfn['href'], xfn['name'])
@@ -1832,6 +1833,7 @@ class _FeedParserMixin:
         attrsD = self._itsAnHrefDamnIt(attrsD)
         context = self._getContext()
         attrsD['rel'] = u'enclosure'
+        print attrsD
         context.setdefault('links', []).append(FeedParserDict(attrsD))
 
     def _start_source(self, attrsD):
@@ -2330,7 +2332,7 @@ class _MicroformatsParser:
     known_binary_extensions =  set(['zip','rar','exe','gz','tar','tgz','tbz2','bz2','z','7z','dmg','img','sit','sitx','hqx','deb','rpm','bz2','jar','rar','iso','bin','msi','mp2','mp3','ogg','ogm','mp4','m4v','m4a','avi','wma','wmv'])
 
     def __init__(self, data, baseuri, encoding):
-        self.document = BeautifulSoup.BeautifulSoup(data)
+        self.mf2 = mf2parser(doc=data).to_dict()
         self.baseuri = baseuri
         self.encoding = encoding
         if isinstance(data, unicode):
@@ -2687,7 +2689,7 @@ class _MicroformatsParser:
         return sVCards.strip()
 
     def isProbablyDownloadable(self, elm):
-        attrsD = elm.attrMap
+        attrsD = elm.attrMap or {}
         if 'href' not in attrsD:
             return 0
         linktype = attrsD.get('type', '').strip()
@@ -2705,9 +2707,8 @@ class _MicroformatsParser:
         return fileext in self.known_binary_extensions
 
     def findTags(self):
-        all = lambda x: 1
-        for elm in self.document(all, {'rel': re.compile(r'\btag\b')}):
-            href = elm.get('href')
+        rels = self.mf2.get("rels",{})
+        for href in rels.get("tag",[]):
             if not href:
                 continue
             urlscheme, domain, path, params, query, fragment = \
@@ -2723,29 +2724,33 @@ class _MicroformatsParser:
             tagscheme = urlparse.urlunparse((urlscheme, domain, '/'.join(segments), '', '', ''))
             if not tagscheme.endswith('/'):
                 tagscheme += '/'
-            self.tags.append(FeedParserDict({"term": tag, "scheme": tagscheme, "label": elm.string or ''}))
+            urlname = self.mf2.get("urls",{}).get(href,{}).get("name",[''])[0]
+            self.tags.append(FeedParserDict({"term": tag, "scheme": tagscheme, "label": urlname}))
 
     def findEnclosures(self):
-        all = lambda x: 1
-        enclosure_match = re.compile(r'\benclosure\b')
-        for elm in self.document(all, {'href': re.compile(r'.+')}):
-            if not enclosure_match.search(elm.get('rel', u'')) and not self.isProbablyDownloadable(elm):
-                continue
-            if elm.attrMap not in self.enclosures:
-                self.enclosures.append(elm.attrMap)
-                if elm.string and not elm.get('title'):
-                    self.enclosures[-1]['title'] = elm.string
+        rels = self.mf2.get("rels",{})
+        for enc in rels.get("enclosure",[]):
+            url_props = self.mf2.get("urls",{}).get(enc,{})
+            enc_type = url_props.get("type",u'')
+            enc_title = url_props.get("title",url_props.get("name",[u''])[0])
+            self.enclosures.append({'href':enc,'rel':u'enclosure', 'title':enc_title, 'type':enc_type})
 
     def findXFN(self):
-        all = lambda x: 1
-        for elm in self.document(all, {'rel': re.compile('.+'), 'href': re.compile('.+')}):
-            rels = elm.get('rel', u'').split()
-            xfn_rels = [r for r in rels if r in self.known_xfn_relationships]
-            if xfn_rels:
-                self.xfn.append({"relationships": xfn_rels, "href": elm.get('href', ''), "name": elm.string})
+        urls={}
+        rels = self.mf2.get("rels",{})
+        for r in rels:
+            if r in self.known_xfn_relationships:
+                print r,rels[r]
+                for url in rels[r]:
+                    rellist = urls.get(url, [])
+                    rellist.append(r)
+                    urls[url] = rellist
+        for url in urls:
+            urlname = self.mf2.get("urls",{}).get(url,{}).get("name",[''])[0]
+            self.xfn.append({"relationships": urls[url], "href": url, "name": urlname})
 
 def _parseMicroformats(htmlSource, baseURI, encoding):
-    if not BeautifulSoup:
+    if not mf2parser:
         return
     try:
         p = _MicroformatsParser(htmlSource, baseURI, encoding)
@@ -2754,7 +2759,7 @@ def _parseMicroformats(htmlSource, baseURI, encoding):
         # with non-ASCII characters in them.
         return
         
-    p.vcard = p.findVCards(p.document)
+    #p.vcard = p.findVCards(p.document)
     p.findTags()
     p.findEnclosures()
     p.findXFN()

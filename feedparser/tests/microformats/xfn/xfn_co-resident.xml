@@ -1,5 +1,5 @@
 <!--
-SkipUnless:  feedparser.BeautifulSoup
+SkipUnless:  feedparser.mf2parser
 Description: content contains XFN link
 Expect:      not bozo and entries[0]['xfn'][0]['relationships'] == [u'co-resident']
 -->

@@ -1,5 +1,5 @@
 <!--
-SkipUnless:  feedparser.BeautifulSoup
+SkipUnless:  feedparser.mf2parser
 Description: ensure that isProbablyDownloadable() will not throw ValueError on a bad URL
 Expect:      not bozo
 -->
