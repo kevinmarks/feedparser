@@ -940,7 +940,6 @@ class _FeedParserMixin:
                 for tag in mfresults.get('tags', []):
                     self._addTag(tag['term'], tag['scheme'], tag['label'])
                 for enclosure in mfresults.get('enclosures', []):
-                    print enclosure
                     self._start_enclosure(enclosure)
                 for xfn in mfresults.get('xfn', []):
                     self._addXFN(xfn['relationships'], xfn['href'], xfn['name'])
@@ -1833,7 +1832,6 @@ class _FeedParserMixin:
         attrsD = self._itsAnHrefDamnIt(attrsD)
         context = self._getContext()
         attrsD['rel'] = u'enclosure'
-        print attrsD
         context.setdefault('links', []).append(FeedParserDict(attrsD))
 
     def _start_source(self, attrsD):
@@ -2724,15 +2722,15 @@ class _MicroformatsParser:
             tagscheme = urlparse.urlunparse((urlscheme, domain, '/'.join(segments), '', '', ''))
             if not tagscheme.endswith('/'):
                 tagscheme += '/'
-            urlname = self.mf2.get("urls",{}).get(href,{}).get("name",[''])[0]
+            urlname = self.mf2.get("rel-urls",{}).get(href,{}).get("text",u'')
             self.tags.append(FeedParserDict({"term": tag, "scheme": tagscheme, "label": urlname}))
 
     def findEnclosures(self):
         rels = self.mf2.get("rels",{})
         for enc in rels.get("enclosure",[]):
-            url_props = self.mf2.get("urls",{}).get(enc,{})
+            url_props = self.mf2.get("rel-urls",{}).get(enc,{})
             enc_type = url_props.get("type",u'')
-            enc_title = url_props.get("title",url_props.get("name",[u''])[0])
+            enc_title = url_props.get("title",url_props.get("text",u''))
             self.enclosures.append({'href':enc,'rel':u'enclosure', 'title':enc_title, 'type':enc_type})
 
     def findXFN(self):
@@ -2740,13 +2738,12 @@ class _MicroformatsParser:
         rels = self.mf2.get("rels",{})
         for r in rels:
             if r in self.known_xfn_relationships:
-                print r,rels[r]
                 for url in rels[r]:
                     rellist = urls.get(url, [])
                     rellist.append(r)
                     urls[url] = rellist
         for url in urls:
-            urlname = self.mf2.get("urls",{}).get(url,{}).get("name",[''])[0]
+            urlname = self.mf2.get("rel-urls",{}).get(url,{}).get("text",u'')
             self.xfn.append({"relationships": urls[url], "href": url, "name": urlname})
 
 def _parseMicroformats(htmlSource, baseURI, encoding):
